@@ -6,6 +6,7 @@ import { connectRedis } from './utils/redis.js';
 import errorHandler from './middlewares/errorHandler.js';
 import authRoutes from './routes/auth.js';
 import passport from './utils/passport-setup.js'; // Correct path to passport setup
+import translateRoute from './routes/translation.js';
 
 const app = express();
 
@@ -31,6 +32,8 @@ app.get('/', (req, res) => {
 
 // API Routes
 app.use('/api/v1', authRoutes);
+
+app.use('/api/v1',translateRoute);
 
 // Global Error Handler (must be the last middleware)
 app.use(errorHandler);
