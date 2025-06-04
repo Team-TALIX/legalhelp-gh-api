@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import ChatSession from "../models/ChatSession.js";
 import User from "../models/User.js";
 import LegalContent from "../models/LegalContent.js";
@@ -18,15 +19,31 @@ import { generateUniqueId } from "../utils/helpers.js";
 // Create a new chat session
 export const createSession = async (req, res) => {
   try {
-    const validatedData = validateAndSanitize(createSessionSchema, req.body);
+    const validatedData = validateAndSanitize(
+      createSessionSchema,
+      req.body || {}
+    );
 
     // Generate unique session ID
     const sessionId = generateUniqueId("chat");
 
+    // Generate a smart default name if not provided
+    let sessionName = validatedData.name;
+    if (!sessionName || sessionName.trim() === "") {
+      const now = new Date();
+      sessionName = `Chat ${
+        now.getMonth() + 1
+      }/${now.getDate()}/${now.getFullYear()} ${now.getHours()}:${now
+        .getMinutes()
+        .toString()
+        .padStart(2, "0")}`;
+    }
+
     // Create new chat session
     const chatSession = new ChatSession({
-      userId: req.user ? req.user.id : null,
+      userId: req.user ? req.user.id : new mongoose.Types.ObjectId(), // Generate a temp ObjectId for anonymous users
       sessionId,
+      name: sessionName,
       messages: [],
       context: validatedData.context || {},
       active: true,
@@ -151,6 +168,25 @@ export const processQuery = async (req, res) => {
     // Update context with detected legal topic
     if (assistantResponse.legalTopic) {
       chatSession.context.legalTopic = assistantResponse.legalTopic;
+      chatSession.context.resolved = true;
+
+      // Auto-update session name if it's still the default timestamp-based name
+      if (
+        chatSession.name &&
+        chatSession.name.startsWith("Chat ") &&
+        chatSession.name.includes("/")
+      ) {
+        // Generate a smart name based on the legal topic or first message
+        let smartName = assistantResponse.legalTopic;
+        if (!smartName && content.length > 0) {
+          // Use first 50 characters of the user's message as fallback
+          smartName =
+            content.length > 50 ? content.substring(0, 47) + "..." : content;
+        }
+        if (smartName) {
+          chatSession.name = smartName;
+        }
+      }
     }
 
     // Save updated session
@@ -203,6 +239,8 @@ export const getChatHistory = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const validatedQuery = validateAndSanitize(chatHistorySchema, {
+      limit: req.query.limit || 50,
+      offset: req.query.offset || 0,
       ...req.validatedQuery,
     });
 
@@ -322,10 +360,10 @@ export const submitFeedback = async (req, res) => {
 export const deleteSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const validatedData = validateAndSanitize(deleteSessionSchema, {
-      // sessionId,
-      ...req.body,
-    });
+    const validatedData = validateAndSanitize(
+      deleteSessionSchema,
+      req.body || {}
+    );
 
     // Find and verify session ownership
     const chatSession = await ChatSession.findOne({
@@ -374,10 +412,10 @@ export const deleteSession = async (req, res) => {
 export const updateSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const validatedData = validateAndSanitize(updateSessionSchema, {
-      // sessionId,
-      ...req.body,
-    });
+    const validatedData = validateAndSanitize(
+      updateSessionSchema,
+      req.body || {}
+    );
 
     // Find chat session
     const chatSession = await ChatSession.findOne({
@@ -403,6 +441,10 @@ export const updateSession = async (req, res) => {
     }
 
     // Update session
+    if (validatedData.name !== undefined) {
+      chatSession.name = validatedData.name.trim() || chatSession.name;
+    }
+
     if (validatedData.context) {
       chatSession.context = {
         ...chatSession.context,
@@ -443,7 +485,7 @@ export const getUserSessions = async (req, res) => {
         message: "Authentication required",
       });
     }
-    
+
     const { page = 1, limit = 10, active } = req.query;
     const skip = (page - 1) * limit;
     // Build query
@@ -454,7 +496,7 @@ export const getUserSessions = async (req, res) => {
 
     // Get sessions with pagination
     const sessions = await ChatSession.find(query)
-      .select("sessionId context lastAccessed active createdAt")
+      .select("sessionId name context lastAccessed active createdAt")
       .sort({ lastAccessed: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -465,6 +507,7 @@ export const getUserSessions = async (req, res) => {
       success: true,
       sessions: sessions.map((session) => ({
         sessionId: session.sessionId,
+        name: session.name,
         context: session.context,
         lastAccessed: session.lastAccessed,
         active: session.active,

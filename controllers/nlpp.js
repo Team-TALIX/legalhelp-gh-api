@@ -254,7 +254,7 @@ export const textToSpeechHandler = async (req, res, next) => {
       speakerId
     );
 
-    // Convert base64 audio data to Buffer
+    // Convert base64 audio data back to buffer
     const audioBuffer = Buffer.from(audioResult.audioData, "base64");
 
     // Set appropriate headers for audio response
@@ -262,6 +262,8 @@ export const textToSpeechHandler = async (req, res, next) => {
       "Content-Type": "audio/wav",
       "Content-Length": audioBuffer.length,
       "Cache-Control": "public, max-age=3600", // Cache for 1 hour
+      "X-Audio-Language": audioResult.language,
+      "X-Speaker-ID": audioResult.speakerId,
     });
 
     res.send(audioBuffer);
@@ -277,15 +279,44 @@ export const textToSpeechHandler = async (req, res, next) => {
  */
 export const getTTSLanguagesHandler = async (req, res, next) => {
   try {
-    const [languages, speakers] = await Promise.all([
-      NLPService.getSupportedLanguages(),
-      NLPService.getTTSSpeakers(),
-    ]);
+    // TTS languages are fixed based on GhanaNLP API documentation
+    const supportedTtsLanguages = {
+      tw: "Twi",
+      ki: "Kikuyu",
+      ee: "Ewe",
+    };
+
+    const supportedSpeakers = {
+      tw: [
+        "twi_speaker_4",
+        "twi_speaker_5",
+        "twi_speaker_6",
+        "twi_speaker_7",
+        "twi_speaker_8",
+        "twi_speaker_9",
+      ],
+      ki: ["kikuyu_speaker_1", "kikuyu_speaker_5"],
+      ee: ["ewe_speaker_3", "ewe_speaker_4"],
+    };
+
+    // Try to get speakers from the API, but fallback to hardcoded ones
+    let speakers = supportedSpeakers;
+    try {
+      const apiSpeakers = await NLPService.getTTSSpeakers();
+      if (apiSpeakers && typeof apiSpeakers === "object") {
+        speakers = apiSpeakers;
+      }
+    } catch (speakerError) {
+      console.warn(
+        "Failed to fetch TTS speakers from API, using fallback:",
+        speakerError.message
+      );
+    }
 
     res.json({
       success: true,
       data: {
-        languages: languages.tts,
+        languages: supportedTtsLanguages,
         speakers,
         lastUpdated: new Date().toISOString(),
       },
@@ -295,7 +326,11 @@ export const getTTSLanguagesHandler = async (req, res, next) => {
 
     // Fallback response
     const fallbackData = {
-      languages: ["tw", "ki", "ee"],
+      languages: {
+        tw: "Twi",
+        ki: "Kikuyu",
+        ee: "Ewe",
+      },
       speakers: {
         tw: [
           "twi_speaker_4",

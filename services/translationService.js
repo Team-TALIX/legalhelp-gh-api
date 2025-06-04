@@ -20,6 +20,18 @@ const languageCodeMap = {
   // Add all other supported languages by your app and the GhanaNLP translation API
   // Example: 'fante': 'fat', 'gurene': 'gur' , etc.
 };
+// dag: "Dagbani";
+// ee: "Ewe";
+// en: "English";
+// fat: "Fante";
+// gaa: "Ga";
+// gur: "Gurune";
+// ki: "Kikuyu";
+// kus: "Kusaal";
+// luo: "Luo";
+// mer: "Kimeru";
+// tw: "Twi";
+// yo: "Yoruba";
 
 /**
  * Generates a cache key for translation requests.

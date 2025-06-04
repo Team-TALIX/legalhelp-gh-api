@@ -1,14 +1,14 @@
 import Joi from "joi";
 
 // Supported languages as per project requirements
-const supportedLanguages = ["en", "twi", "ewe", "dagbani"];
+const supportedLanguages = ["en", "tw", "ee", "dag"];
 
 // Chat query validation schema
 export const chatQuerySchema = Joi.object({
-  // sessionId: Joi.string().required().messages({
-  //   "any.required": "Session ID is required",
-  //   "string.empty": "Session ID cannot be empty",
-  // }),
+  sessionId: Joi.string().required().messages({
+    "any.required": "Session ID is required",
+    "string.empty": "Session ID cannot be empty",
+  }),
   content: Joi.string().required().min(1).max(2000).messages({
     "any.required": "Message content is required",
     "string.empty": "Message content cannot be empty",
@@ -23,8 +23,8 @@ export const chatQuerySchema = Joi.object({
       "any.only": `Language must be one of: ${supportedLanguages.join(", ")}`,
     }),
   context: Joi.object({
-    legalTopic: Joi.string().optional(),
-    userLocation: Joi.string().optional(),
+    legalTopic: Joi.string().optional().allow(""),
+    userLocation: Joi.string().optional().allow(""),
     previousContext: Joi.string().optional(),
   }).optional(),
   isVoiceInput: Joi.boolean().default(false),
@@ -46,11 +46,6 @@ export const chatHistorySchema = Joi.object({
     "number.base": "Offset must be a number",
     "number.integer": "Offset must be an integer",
     "number.min": "Offset cannot be negative",
-  }),
-  page: Joi.number().integer().min(0).default(4).messages({
-    "number.base": "page must be a number",
-    "number.integer": "page must be an integer",
-    "number.min": "page cannot be negative",
   }),
 });
 
@@ -83,31 +78,28 @@ export const chatFeedbackSchema = Joi.object({
 
 // Session creation validation schema
 export const createSessionSchema = Joi.object({
+  name: Joi.string().max(100).optional().allow(""),
   language: Joi.string()
     .valid(...supportedLanguages)
     .default("en")
     .messages({
       "any.only": `Language must be one of: ${supportedLanguages.join(", ")}`,
-    }),
+    })
+    .optional(),
   context: Joi.object({
-    legalTopic: Joi.string().optional(),
-    userLocation: Joi.string().optional(),
-    resolved: Joi.boolean().optional(),
+    legalTopic: Joi.string().optional().allow(""),
+    userLocation: Joi.string().optional().allow(""),
+    resolved: Joi.boolean().optional().default(false),
   }).optional(),
-  isAnonymous: Joi.boolean().default(true),
-});
+  isAnonymous: Joi.boolean().default(true).optional(),
+}).optional();
 
 // Session deletion validation schema
 export const deleteSessionSchema = Joi.object({
-  // sessionId: Joi.string().required().messages({
-  //   "any.required": "Session ID is required",
-  //   "string.empty": "Session ID cannot be empty",
-  // }),
-  confirmDelete: Joi.boolean().valid(true).required().messages({
-    "any.required": "Delete confirmation is required",
+  confirmDelete: Joi.boolean().valid(true).default(true).messages({
     "any.only": "Delete confirmation must be true",
   }),
-});
+}).optional();
 
 // Voice message validation schema
 export const voiceMessageSchema = Joi.object({
@@ -136,17 +128,14 @@ export const voiceMessageSchema = Joi.object({
 
 // Chat session update validation schema
 export const updateSessionSchema = Joi.object({
-  // sessionId: Joi.string().required().messages({
-  //   "any.required": "Session ID is required",
-  //   "string.empty": "Session ID cannot be empty",
-  // }),
+  name: Joi.string().max(100).optional().allow(""),
   context: Joi.object({
-    legalTopic: Joi.string().optional(),
-    userLocation: Joi.string().optional(),
+    legalTopic: Joi.string().optional().allow(""),
+    userLocation: Joi.string().optional().allow(""),
     resolved: Joi.boolean().optional(),
   }).optional(),
   active: Joi.boolean().optional(),
-});
+}).optional();
 
 // Schema for validating just sessionId from path parameters
 export const sessionIdParamsSchema = Joi.object({
